@@ -1,34 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dental Pin — نظام إدارة عيادة الأسنان 🦷✨
 
-## Getting Started
+نظام ويب متكامل واحترافي باللغة العربية بالكامل (RTL) لإدارة عيادات ومراكز طب الأسنان، مصمم بواجهة عصرية حديثة ومستوحى من أحدث نظم الإدارة الطبية العالمية (Apexo Style).
 
-First, run the development server:
+---
 
+## 🌟 الميزات الرئيسية (MVP Features)
+
+1. **📊 لوحة التحكم (Dashboard)**:
+   - بطاقات إحصائية ذكية (مواعيد اليوم، مرضى جدد، في الانتظار، المكتملة).
+   - جدول مواعيد اليوم مع تحديثات الحالة اللحظية (حضر، قيد الكشف، إنهاء الزيارة، إلغاء، لم يحضر).
+   - إجراءات سريعة واختصارات لجميع أقسام العيادة.
+   - تنبيهات وإشعارات فورية مباشرة.
+
+2. **👥 إدارة المرضى (Patients)**:
+   - سجل شامل لكل مريض (الاسم، الهاتف، العمر، الجنس، العنوان، التاريخ الطبي والحساسية).
+   - بحث فوري بالاسم أو الهاتف وفلاتر متقدمة.
+   - ملف مريض مخصص يعرض كافة المواعيد السابقة والقادمة.
+
+3. **📅 إدارة الحجوزات والمواعيد (Appointments)**:
+   - عرض تقويمي أسبوعي (Weekly Calendar View) وجدول تفصيلي (List View).
+   - دورة حياة كاملة للموعد: `انتظار ← مؤكد ← حضر ← قيد الكشف ← مكتمل ← ملغي / لم يحضر`.
+   - إضافة مواعيد جديدة مع منع الحجز المزدوج أو التعارض في الأوقات.
+   - إمكانية إعادة جدولة الموعد بنقرة واحدة.
+
+4. **🌐 الحجز الإلكتروني العام (Online Booking)**:
+   - صفحة حجز عامة بدون الحاجة لتسجيل دخول للمريض (`/booking`).
+   - خطوات حجز تفاعلية: اختيار الخدمة ← التاريخ المتاح ← الوقت المناسب ← بيانات المريض ← إيصال الحجز.
+   - إظهار فترات العمل (صباحية ومسائية) وتحديد المواعيد المحجوزة مسبقاً بشكل واقعي لمنع التعارض.
+   - إرسال إشعار فوري للعيادة عند إتمام أي حجز جديد.
+
+5. **📈 التقارير والإحصائيات (Reports)**:
+   - فلاتر تاريخية (اليوم، هذا الأسبوع، هذا الشهر).
+   - مؤشرات الأداء ومخططات بيانية تفاعلية باستخدام Chart.js.
+   - توزيع الحالات ونسب الحضور ومعدل إنجاز المواعيد.
+
+6. **🔔 الإشعارات الفورية (Notifications)**:
+   - قائمة إشعارات منسدلة في الشريط العلوي وصفحة مخصصة للإشعارات.
+   - تنبيهات بالحجوزات الإلكترونية الجديدة، المواعيد القريبة، والإلغاءات.
+
+---
+
+## 🛠️ التقنيات المستخدمة (Tech Stack)
+
+- **Frontend**: Next.js 16 (App Router) + React 19
+- **Backend & Database**: Supabase (PostgreSQL + Auth + Realtime Sync)
+- **Styling**: Vanilla CSS (نظام تصميم Design System كامل ومخصص باللغة العربية RTL)
+- **Icons**: Lucide React
+- **Charts**: Chart.js + react-chartjs-2
+- **Font**: Cairo (Google Fonts)
+
+---
+
+## 🚀 طريقة التثبيت والتشغيل (Getting Started)
+
+### 1. تثبيت الحزم:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. إعداد المتغيرات البيئية:
+قم بإنشاء ملف `.env.local` في المجلد الرئيسي وضع به بيانات مشروعك على Supabase:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-secret-key
+```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### 3. إعداد قاعدة البيانات في Supabase:
+- افتح **SQL Editor** في لوحة تحكم Supabase.
+- انسخ محتوى الملف `supabase/schema.sql` والصقه في المحرر واضغط **Run**.
 
-## Learn More
+### 4. تشغيل السيرفر المحلي:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+افتح المتصفح على: [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔐 بيانات الدخول التجريبية للوحة التحكم:
+- **البريد الإلكتروني**: `admin@dentalpin.com`
+- **كلمة المرور**: `admin123`
