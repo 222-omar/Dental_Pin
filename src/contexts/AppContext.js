@@ -131,6 +131,69 @@ export function AppProvider({ children }) {
     return patients.find(p => p.id === id);
   }, [patients]);
 
+  // ---- Services & Financial Helpers ----
+  const getAppointmentPrice = useCallback((apt) => {
+    if (!apt) return 0;
+    if (apt.paid_amount) return Number(apt.paid_amount);
+    if (apt.price) return Number(apt.price);
+    const s = services.find(srv => srv.id === apt.service_id || srv.name === apt.service_name);
+    return s ? Number(s.price) : 200;
+  }, [services]);
+
+  // ---- Notifications ----
+  const addNotification = useCallback(async (notification) => {
+    if (!usingMockData) {
+      try {
+        const { data, error } = await supabase.from('notifications').insert([{
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          is_read: false,
+          related_appointment_id: notification.related_appointment_id || null,
+        }]).select().single();
+
+        if (!error && data) {
+          setNotifications(prev => [data, ...prev]);
+          return data;
+        }
+      } catch (e) {
+        console.error('Error adding notification to Supabase:', e);
+      }
+    }
+
+    const newNotification = {
+      ...notification,
+      id: (Date.now() + Math.random()).toString(),
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+  }, [usingMockData]);
+
+  const markNotificationRead = useCallback(async (id) => {
+    if (!usingMockData) {
+      try {
+        await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setNotifications(prev => prev.map(n =>
+      n.id === id ? { ...n, is_read: true } : n
+    ));
+  }, [usingMockData]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!usingMockData) {
+      try {
+        await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  }, [usingMockData]);
+
   // ---- Appointments ----
   const addAppointment = useCallback(async (appointment) => {
     if (!usingMockData) {
@@ -287,8 +350,11 @@ export function AppProvider({ children }) {
     ));
   }, [usingMockData]);
 
-  const checkOutAppointment = useCallback(async (id) => {
+  const checkOutAppointment = useCallback(async (id, customPrice) => {
     const timestamp = new Date().toISOString();
+    const targetApt = appointments.find(a => a.id === id);
+    const amount = customPrice !== undefined ? Number(customPrice) : (targetApt ? getAppointmentPrice(targetApt) : 200);
+
     if (!usingMockData) {
       try {
         await supabase.from('appointments').update({
@@ -301,9 +367,20 @@ export function AppProvider({ children }) {
       }
     }
     setAppointments(prev => prev.map(a =>
-      a.id === id ? { ...a, status: 'completed', checked_out_at: timestamp } : a
+      a.id === id ? { ...a, status: 'completed', checked_out_at: timestamp, paid_amount: amount } : a
     ));
-  }, [usingMockData]);
+
+    if (targetApt) {
+      addNotification({
+        type: 'upcoming',
+        title: 'اكتمال زيارة وتحصيل الرسوم',
+        message: `تم إنهاء موعد ${targetApt.patient_name} وتم تسجيل تحصيل ${amount} ج.م مقابل ${targetApt.service_name || 'الكشف'}`,
+        related_appointment_id: id,
+      });
+    }
+
+    return amount;
+  }, [usingMockData, appointments, getAppointmentPrice, addNotification]);
 
   const markNoShow = useCallback(async (id) => {
     const timestamp = new Date().toISOString();
@@ -352,61 +429,19 @@ export function AppProvider({ children }) {
     return bookedSlots;
   }, [appointments]);
 
-  // ---- Notifications ----
-  const addNotification = useCallback(async (notification) => {
-    if (!usingMockData) {
-      try {
-        const { data, error } = await supabase.from('notifications').insert([{
-          type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          is_read: false,
-          related_appointment_id: notification.related_appointment_id || null,
-        }]).select().single();
-
-        if (!error && data) {
-          setNotifications(prev => [data, ...prev]);
-          return data;
-        }
-      } catch (e) {
-        console.error('Error adding notification to Supabase:', e);
-      }
-    }
-
-    const newNotification = {
-      ...notification,
-      id: (Date.now() + Math.random()).toString(),
-      is_read: false,
-      created_at: new Date().toISOString(),
-    };
-    setNotifications(prev => [newNotification, ...prev]);
-  }, [usingMockData]);
-
-  const markNotificationRead = useCallback(async (id) => {
-    if (!usingMockData) {
-      try {
-        await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    setNotifications(prev => prev.map(n =>
-      n.id === id ? { ...n, is_read: true } : n
-    ));
-  }, [usingMockData]);
-
-  const markAllNotificationsRead = useCallback(async () => {
-    if (!usingMockData) {
-      try {
-        await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-  }, [usingMockData]);
-
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // الحسابات المالية (الإيرادات)
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+  const todayRevenue = appointments
+    .filter(a => a.appointment_date === todayStr && a.status === 'completed')
+    .reduce((sum, a) => sum + getAppointmentPrice(a), 0);
+
+  const totalRevenue = appointments
+    .filter(a => a.status === 'completed')
+    .reduce((sum, a) => sum + getAppointmentPrice(a), 0);
 
   return (
     <AppContext.Provider value={{
@@ -425,8 +460,11 @@ export function AppProvider({ children }) {
       // Notifications
       notifications, addNotification, markNotificationRead,
       markAllNotificationsRead, unreadCount,
-      // Services
+      // Services & Finances
       services,
+      getAppointmentPrice,
+      todayRevenue,
+      totalRevenue,
     }}>
       {children}
     </AppContext.Provider>

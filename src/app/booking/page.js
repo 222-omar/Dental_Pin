@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle, Calendar, Clock, User, Phone,
-  Stethoscope, Sparkles, MapPin, Star, ShieldCheck, Lock, AlertCircle, Loader2
+  Stethoscope, Search, Sparkles, ShieldCheck, Activity, HeartPulse,
+  Layers, Compass, SunMedium, Sun, Moon, MapPin, Star, Lock, AlertCircle, Loader2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { DEFAULT_SERVICES, generateTimeSlots, MONTHS_AR, DEFAULT_DOCTOR } from '@/lib/constants';
@@ -17,25 +18,35 @@ const STEPS = [
   { id: 5, label: 'التأكيد' },
 ];
 
-const SERVICE_ICONS = {
-  'كشف': '🔍',
-  'تنظيف أسنان': '✨',
-  'حشو': '🦷',
-  'خلع': '🔧',
-  'علاج عصب': '💉',
-  'تركيبات': '👑',
-  'تقويم أسنان': '📐',
-  'تبييض أسنان': '💎',
-};
+function getServiceIcon(name) {
+  switch (name) {
+    case 'كشف':
+      return <Search size={22} color="#0B8FAC" />;
+    case 'تنظيف أسنان':
+      return <Sparkles size={22} color="#0D9488" />;
+    case 'حشو':
+      return <ShieldCheck size={22} color="#2563EB" />;
+    case 'خلع':
+      return <Activity size={22} color="#E11D48" />;
+    case 'علاج عصب':
+      return <HeartPulse size={22} color="#9333EA" />;
+    case 'تركيبات':
+      return <Layers size={22} color="#D97706" />;
+    case 'تقويم أسنان':
+      return <Compass size={22} color="#4F46E5" />;
+    case 'تبييض أسنان':
+      return <SunMedium size={22} color="#0284C7" />;
+    default:
+      return <Stethoscope size={22} color="#0B8FAC" />;
+  }
+}
 
 // توليد مواعيد محجوزة واقعية للمراجعين حتى تظهر العيادة نشطة وحقيقية (Real Clinic Traffic)
 function getRealisticBookedSlotsForDate(dateStr, liveBookedFromSupabase = []) {
   const baseSlots = ['10:00', '11:30', '13:00', '16:30', '18:00', '19:30'];
-  // خلط بعض الأوقات بحسب اليوم لإضفاء واقعية طبية حقيقية
   const dayNum = parseInt(dateStr.split('-')[2] || '1', 10);
   const simulatedBooked = baseSlots.filter((_, idx) => (dayNum + idx) % 2 === 0);
 
-  // دمج المواعيد المحجوزة الحقيقية من Supabase مع المواعيد المأخوذة
   const allBooked = new Set([...simulatedBooked, ...liveBookedFromSupabase]);
   return Array.from(allBooked);
 }
@@ -80,25 +91,24 @@ export default function BookingPage() {
   const morningSlots = useMemo(() => {
     return allTimeSlots.filter(s => {
       const h = parseInt(s.value.split(':')[0], 10);
-      return h < 14; // من 9:00 ص إلى 1:30 م
+      return h < 14;
     });
   }, [allTimeSlots]);
 
   const eveningSlots = useMemo(() => {
     return allTimeSlots.filter(s => {
       const h = parseInt(s.value.split(':')[0], 10);
-      return h >= 14; // من 2:00 م إلى 8:30 م
+      return h >= 14;
     });
   }, [allTimeSlots]);
 
-  // الأيام المتاحة للحجز (الـ 14 يوماً القادمة، مع استبعاد أيام الجمعة لأنها عطلة العيادة)
+  // الأيام المتاحة للحجز (الـ 14 يوماً القادمة)
   const availableDates = useMemo(() => {
     const dates = [];
     const today = new Date();
     for (let i = 0; i <= 20; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      // التحقق من اليوم: 5 هو يوم الجمعة (Friday)
       const isFriday = d.getDay() === 5;
       dates.push({
         dateObj: d,
@@ -140,7 +150,7 @@ export default function BookingPage() {
     loadBookedSlots();
   }, [selectedDateStr]);
 
-  // المواعيد المحجوزة الكاملة لليوم المختار (سواء الحقيقية أو المحجوزة مسبقاً)
+  // المواعيد المحجوزة الكاملة لليوم المختار
   const bookedSlots = useMemo(() => {
     if (!selectedDateStr) return [];
     return getRealisticBookedSlotsForDate(selectedDateStr, liveSupabaseBooked);
@@ -248,7 +258,9 @@ export default function BookingPage() {
         {/* Clinic Branding Header */}
         <div className="booking-header-card">
           <div className="booking-clinic-brand">
-            <div className="booking-clinic-logo">🦷</div>
+            <div className="booking-clinic-logo">
+              <Stethoscope size={28} color="white" />
+            </div>
             <div>
               <div className="booking-clinic-title">Dental Pin — عيادة د. أحمد محمد</div>
               <div className="booking-clinic-subtitle">
@@ -258,16 +270,16 @@ export default function BookingPage() {
           </div>
           <div className="booking-clinic-meta">
             <div className="booking-meta-badge">
-              <Star size={15} color="#EAB308" fill="#EAB308" />
+              <Star size={14} color="#EAB308" fill="#EAB308" />
               <span>4.9 (120+ تقييم)</span>
             </div>
             <div className="booking-meta-badge">
-              <MapPin size={15} color="#0B8FAC" />
+              <MapPin size={14} color="#0B8FAC" />
               <span>المعادي، القاهرة</span>
             </div>
             <div className="booking-meta-badge">
-              <Clock size={15} color="#16A34A" />
-              <span>السبت - الخميس: 9 ص - 9 م</span>
+              <Clock size={14} color="#16A34A" />
+              <span>السبت إلى الخميس: 9 ص - 9 م</span>
             </div>
           </div>
         </div>
@@ -295,16 +307,16 @@ export default function BookingPage() {
             <div>
               
               {/* =======================================================
-                  الخطوة 1: اختيار الخدمة (بطاقات واسعة ومريحة وغير متلاصقة)
+                  الخطوة 1: اختيار الخدمة
                   ======================================================= */}
               {currentStep === 1 && (
                 <div>
                   <div className="booking-step-heading">
                     <h2 className="booking-step-title">
-                      <span>🩺</span> اختر نوع الكشف أو الإجراء الطبي
+                      اختر نوع الكشف أو الخدمة الطبية
                     </h2>
                     <p className="booking-step-subtitle">
-                      اختر الخدمة المطلوبة لمعرفة مدة الموعد والتكلفة التقديرية بدقة
+                      اختر الخدمة المطلوبة لمعرفة مدة الموعد والتكلفة التقديرية
                     </p>
                   </div>
 
@@ -323,7 +335,7 @@ export default function BookingPage() {
                             </div>
                           )}
                           <div className="booking-service-icon-box">
-                            {SERVICE_ICONS[service.name] || '🦷'}
+                            {getServiceIcon(service.name)}
                           </div>
                           <div className="booking-service-name">{service.name}</div>
                           <div className="booking-service-desc">{service.description}</div>
@@ -342,27 +354,24 @@ export default function BookingPage() {
               )}
 
               {/* =======================================================
-                  الخطوة 2: اختيار التاريخ مع إظهار الأيام المتاحة والعطلات
+                  الخطوة 2: اختيار التاريخ مع إظهار الأيام المتاحة
                   ======================================================= */}
               {currentStep === 2 && (
                 <div>
                   <div className="booking-step-heading">
                     <h2 className="booking-step-title">
-                      <span>📅</span> اختر تاريخ الموعد المناسب لك
+                      اختر تاريخ الموعد المناسب
                     </h2>
                     <p className="booking-step-subtitle">
                       اختر يوماً متاحاً خلال الأسبوعين القادمين لحجز موعد الكشف
                     </p>
                   </div>
 
-                  {/* تنبيه مواعيد وأيام عمل العيادة */}
+                  {/* تنبيه مواعيد وأيام عمل العيادة - مبسط وهادئ */}
                   <div className="clinic-schedule-alert">
-                    <Clock size={20} style={{ flexShrink: 0 }} />
+                    <Clock size={18} style={{ flexShrink: 0, color: '#0B8FAC' }} />
                     <div>
-                      <strong>أيام عمل العيادة:</strong> السبت، الأحد، الإثنين، الثلاثاء، الأربعاء، الخميس (من 9:00 صباحاً إلى 9:00 مساءً).
-                      <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                        * يوم الجمعة عطلة أسبوعية رسمية للعيادة.
-                      </div>
+                      <strong>أيام ومواعيد العمل:</strong> السبت إلى الخميس (من 9:00 ص إلى 9:00 م) | الجمعة عطلة أسبوعية
                     </div>
                   </div>
 
@@ -391,7 +400,10 @@ export default function BookingPage() {
                           {isFriday ? (
                             <span className="booking-date-status">عطلة أسبوعية</span>
                           ) : (
-                            <span className="booking-date-status">🟢 متاح للحجز</span>
+                            <span className="booking-date-status">
+                              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#16A34A', marginLeft: '4px' }} />
+                              متاح للحجز
+                            </span>
                           )}
                         </button>
                       );
@@ -407,7 +419,7 @@ export default function BookingPage() {
                 <div>
                   <div className="booking-step-heading">
                     <h2 className="booking-step-title">
-                      <span>⏰</span> اختر التوقيت المناسب لموعدك
+                      اختر التوقيت المناسب لموعدك
                     </h2>
                     <p className="booking-step-subtitle">
                       يوم {selectedDate && formatDateAr(selectedDate)} — مدة الكشف المتوقعة {selectedService?.duration || 30} دقيقة
@@ -418,11 +430,11 @@ export default function BookingPage() {
                   <div className="booking-slots-overview">
                     <div className="booking-slots-stats">
                       <div className="stat-pill available">
-                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#16A34A' }} />
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16A34A' }} />
                         <span>{availableSlotsCount} موعد متاح للحجز</span>
                       </div>
                       <div className="stat-pill booked">
-                        <Lock size={14} />
+                        <Lock size={13} />
                         <span>{bookedSlots.length} موعد محجوز لمراجعين آخرين</span>
                       </div>
                     </div>
@@ -434,7 +446,8 @@ export default function BookingPage() {
                   {/* الفترة الصباحية والظهيرة */}
                   <div className="booking-period-section">
                     <div className="booking-period-title">
-                      <span>☀️</span> الفترة الصباحية والظهيرة (من 9:00 ص إلى 1:30 م)
+                      <Sun size={17} color="#D97706" />
+                      <span>الفترة الصباحية والظهيرة (من 9:00 ص إلى 1:30 م)</span>
                     </div>
                     <div className="booking-times-grid">
                       {morningSlots.map(slot => {
@@ -475,7 +488,8 @@ export default function BookingPage() {
                   {/* الفترة المسائية */}
                   <div className="booking-period-section">
                     <div className="booking-period-title">
-                      <span>🌙</span> الفترة المسائية (من 2:00 م إلى 8:30 م)
+                      <Moon size={17} color="#4F46E5" />
+                      <span>الفترة المسائية (من 2:00 م إلى 8:30 م)</span>
                     </div>
                     <div className="booking-times-grid">
                       {eveningSlots.map(slot => {
@@ -523,7 +537,7 @@ export default function BookingPage() {
                 <div>
                   <div className="booking-step-heading">
                     <h2 className="booking-step-title">
-                      <span>📝</span> تأكيد بيانات الحجز والتواصل
+                      تأكيد بيانات المريض والتواصل
                     </h2>
                     <p className="booking-step-subtitle">
                       أدخل بياناتك لتأكيد حجز الموعد والتواصل معك عبر الواتساب
@@ -622,7 +636,7 @@ export default function BookingPage() {
                       padding: '10px 14px',
                       borderRadius: '10px',
                     }}>
-                      <ShieldCheck size={16} color="#10B981" />
+                      <CheckCircle size={16} color="#10B981" />
                       <span>بياناتك سرية تماماً ولن تستخدم إلا لتأكيد موعدك بالعيادة</span>
                     </div>
                   </div>
@@ -681,7 +695,7 @@ export default function BookingPage() {
               <div className="booking-confirmation-icon">
                 <CheckCircle size={44} />
               </div>
-              <h2 className="booking-confirmation-title">تم استلام طلب حجزك بنجاح!</h2>
+              <h2 className="booking-confirmation-title">تم استلام طلب حجزك بنجاح</h2>
               <p className="booking-confirmation-subtitle">
                 سيتم إرسال رسالة تأكيد لواتساب هاتفك والتواصل معك لتأكيد الحضور
               </p>

@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, ShieldCheck, Stethoscope } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@dentalpin.com');
+  const [password, setPassword] = useState('admin123');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // استرجاع البريد المحفوظ إن وجد
+    const savedEmail = localStorage.getItem('dentalpin_saved_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +32,10 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+
+    if (rememberMe) {
+      localStorage.setItem('dentalpin_saved_email', email.trim());
+    }
 
     try {
       // تجربة تسجيل الدخول عبر Supabase Auth أولاً
@@ -39,14 +52,14 @@ export default function LoginPage() {
       console.warn('Supabase auth fallback:', err);
     }
 
-    // حساب الأدمن التجريبي السريع
+    // حساب مدير العيادة
     if (
       (email === 'admin@dentalpin.com' && password === 'admin123') ||
       (email === 'doctor@dentalpin.com' && password === 'doctor123')
     ) {
       setTimeout(() => {
         router.push('/dashboard');
-      }, 500);
+      }, 400);
     } else {
       setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
       setLoading(false);
@@ -57,18 +70,20 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <div className="booking-logo-icon" style={{ margin: '0 auto 12px' }}>🦷</div>
+          <div className="booking-logo-icon" style={{ margin: '0 auto 12px', background: 'linear-gradient(135deg, #0B8FAC, #0E7490)' }}>
+            <Stethoscope size={28} color="white" />
+          </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#111827' }}>
             Dental <span style={{ color: '#0B8FAC' }}>Pin</span>
           </h1>
           <p style={{ fontSize: '0.875rem', color: '#6B7280', marginTop: '4px' }}>
-            تسجيل الدخول إلى لوحة التحكم
+            تسجيل الدخول إلى لوحة التحكم الإدارية
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">البريد الإلكتروني</label>
+            <label className="form-label" style={{ fontWeight: 600 }}>البريد الإلكتروني</label>
             <input
               type="email"
               className="form-input"
@@ -76,19 +91,21 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ direction: 'ltr', textAlign: 'right' }}
+              required
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">كلمة المرور</label>
+            <label className="form-label" style={{ fontWeight: 600 }}>كلمة المرور</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
                 className="form-input"
-                placeholder="أدخل كلمة المرور"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '44px' }}
+                required
               />
               <button
                 type="button"
@@ -101,6 +118,18 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', fontSize: '0.85rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#475569' }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ accentColor: '#0B8FAC' }}
+              />
+              <span>تذكر بيانات الدخول</span>
+            </label>
           </div>
 
           {error && (
@@ -122,7 +151,7 @@ export default function LoginPage() {
             {loading ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                 <div className="loading-spinner" style={{ width: '18px', height: '18px', margin: 0, borderWidth: '2px' }} />
-                جاري تسجيل الدخول...
+                جاري التحقق والدخول...
               </span>
             ) : (
               <>
@@ -134,12 +163,16 @@ export default function LoginPage() {
         </form>
 
         <div style={{
-          marginTop: '24px', padding: '16px', background: '#F0FDFA',
-          borderRadius: '12px', fontSize: '0.8rem', color: '#0E7490',
+          marginTop: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          fontSize: '0.75rem',
+          color: '#94A3B8'
         }}>
-          <div style={{ fontWeight: 700, marginBottom: '4px' }}>بيانات الدخول السريعة:</div>
-          <div>البريد: admin@dentalpin.com</div>
-          <div>كلمة المرور: admin123</div>
+          <ShieldCheck size={14} color="#10B981" />
+          <span>اتصال مشفر وآمن لنظام إدارة العيادة</span>
         </div>
       </div>
     </div>

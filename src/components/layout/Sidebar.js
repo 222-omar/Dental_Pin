@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, CalendarDays, BarChart3, Bell, Settings, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Users, CalendarDays, BarChart3, Bell, Settings, LogOut, X, Stethoscope } from 'lucide-react';
 import { SIDEBAR_ITEMS, SIDEBAR_BOTTOM_ITEMS } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
 
@@ -20,7 +20,9 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         {/* Logo */}
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🦷</div>
+          <div className="sidebar-logo-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0B8FAC, #0E7490)', color: '#ffffff' }}>
+            <Stethoscope size={20} />
+          </div>
           <div>
             <div className="sidebar-logo-text">
               Dental <span>Pin</span>

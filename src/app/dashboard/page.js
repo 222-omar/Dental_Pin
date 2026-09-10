@@ -2,24 +2,22 @@
 
 import { useState } from 'react';
 import {
-  CalendarDays, Users, Clock, CheckCircle, UserPlus, CalendarPlus,
-  ArrowLeft, Phone, MoreHorizontal, PlayCircle, LogOut as LogOutIcon,
-  Ban, UserCheck, Stethoscope, XCircle
+  CalendarDays, Clock, CheckCircle, UserPlus, CalendarPlus,
+  ArrowLeft, Phone, LogOut as LogOutIcon,
+  Ban, UserCheck, Stethoscope, XCircle, CircleDollarSign, BarChart3
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastContext';
 import { STATUS_LABELS } from '@/lib/constants';
-import { formatTimeAr, getInitials, getAvatarColor, timeAgo } from '@/lib/utils';
-import { NOTIFICATION_COLORS } from '@/lib/constants';
-import Modal from '@/components/ui/Modal';
+import { formatTimeAr, getInitials, getAvatarColor } from '@/lib/utils';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { appointments, patients, notifications, unreadCount,
-    checkInAppointment, startTreatment, checkOutAppointment,
+  const {
+    appointments, checkInAppointment, startTreatment, checkOutAppointment,
     confirmAppointment, cancelAppointment, markNoShow,
-    usingMockData, isSupabaseConnected, fetchData
+    todayRevenue, getAppointmentPrice
   } = useApp();
   const { addToast } = useToast();
   const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, action: null });
@@ -33,36 +31,37 @@ export default function DashboardPage() {
 
   const completedToday = todayAppointments.filter(a => a.status === 'completed').length;
   const waitingToday = todayAppointments.filter(a => ['pending', 'confirmed', 'arrived'].includes(a.status)).length;
-  const newPatientsToday = patients.filter(p => p.status === 'new').length;
 
+  // بطاقات الإحصائيات الأربعة الأساسية بما فيها إيرادات اليوم
   const stats = [
     { label: 'مواعيد اليوم', value: todayAppointments.length, icon: CalendarDays, color: 'primary' },
-    { label: 'مرضى جدد', value: newPatientsToday, icon: UserPlus, color: 'info' },
     { label: 'في الانتظار', value: waitingToday, icon: Clock, color: 'warning' },
-    { label: 'مكتملة', value: completedToday, icon: CheckCircle, color: 'success' },
+    { label: 'حالات مكتملة', value: completedToday, icon: CheckCircle, color: 'info' },
+    { label: 'إيرادات اليوم', value: `${todayRevenue.toLocaleString()} ج.م`, icon: CircleDollarSign, color: 'success' },
   ];
 
-  const handleAction = (id, action) => {
+  const handleAction = async (id, action) => {
     switch (action) {
       case 'confirm':
-        confirmAppointment(id);
+        await confirmAppointment(id);
         addToast('تم تأكيد الموعد بنجاح', 'success');
         break;
       case 'checkin':
-        checkInAppointment(id);
-        addToast('تم تسجيل حضور المريض', 'success');
+        await checkInAppointment(id);
+        addToast('تم تسجيل حضور المريض بالعيادة', 'success');
         break;
       case 'start':
-        startTreatment(id);
-        addToast('تم بدء الكشف', 'success');
+        await startTreatment(id);
+        addToast('بدأ الكشف مع الطبيب', 'success');
         break;
-      case 'checkout':
-        checkOutAppointment(id);
-        addToast('تم إنهاء الزيارة بنجاح', 'success');
+      case 'checkout': {
+        const amount = await checkOutAppointment(id);
+        addToast(`تم إنهاء الزيارة بنجاح وتسجيل تحصيل ${amount} ج.م`, 'success');
         break;
+      }
       case 'noshow':
-        markNoShow(id);
-        addToast('تم تسجيل عدم الحضور', 'warning');
+        await markNoShow(id);
+        addToast('تم تسجيل عدم حضور المريض', 'warning');
         break;
       case 'cancel':
         setConfirmDialog({ open: true, id, action: 'cancel' });
@@ -70,8 +69,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleConfirmCancel = () => {
-    cancelAppointment(confirmDialog.id);
+  const handleConfirmCancel = async () => {
+    await cancelAppointment(confirmDialog.id);
     addToast('تم إلغاء الموعد', 'warning');
     setConfirmDialog({ open: false, id: null, action: null });
   };
@@ -91,7 +90,7 @@ export default function DashboardPage() {
         btns.push({ label: 'بدء الكشف', action: 'start', icon: Stethoscope, cls: 'btn-primary' });
         break;
       case 'in_treatment':
-        btns.push({ label: 'إنهاء الزيارة', action: 'checkout', icon: LogOutIcon, cls: 'btn-success' });
+        btns.push({ label: 'إنهاء ودفع', action: 'checkout', icon: LogOutIcon, cls: 'btn-success' });
         break;
     }
     return btns;
@@ -99,58 +98,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Supabase Status Banner */}
-      {usingMockData ? (
-        <div style={{
-          background: '#EFF6FF',
-          border: '1px solid #BFDBFE',
-          borderRadius: '12px',
-          padding: '12px 18px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          fontSize: '0.85rem',
-          color: '#1E40AF',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.25rem' }}>⚡</span>
-            <span>
-              <strong>تم الاتصال بـ Supabase!</strong> النظام يعمل حالياً بوضع المعاينة. لتخزين البيانات دائماً على السحابة، يرجى تشغيل كود <code>supabase/schema.sql</code> في Supabase SQL Editor.
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              fetchData();
-              addToast('جاري التحقق من حالة الجداول...', 'info');
-            }}
-            className="btn btn-secondary btn-sm"
-            style={{ borderColor: '#93C5FD', color: '#1E40AF', background: 'white' }}
-          >
-            تحديث التحقق 🔄
-          </button>
-        </div>
-      ) : (
-        <div style={{
-          background: '#F0FDF4',
-          border: '1px solid #BBF7D0',
-          borderRadius: '12px',
-          padding: '10px 18px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          fontSize: '0.85rem',
-          color: '#166534',
-          gap: '8px',
-        }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }}></span>
-          <span>قاعدة بيانات <strong>Supabase</strong> متصلة وتعمل بنجاح مع التحديث الفوري (Realtime Sync)</span>
-        </div>
-      )}
-
-      {/* Stats */}
+      {/* 1. بطاقات الإحصائيات الأربعة السريعة */}
       <div className="stat-cards-grid">
         {stats.map((stat, i) => (
           <div key={i} className="stat-card">
@@ -165,154 +113,125 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="quick-actions-grid">
-        <Link href="/dashboard/patients" className="quick-action-btn">
-          <div className="quick-action-icon" style={{ background: '#EFF6FF', color: '#2563EB' }}>
-            <Users size={22} />
-          </div>
-          <span className="quick-action-label">المرضى</span>
-        </Link>
-        <Link href="/dashboard/appointments" className="quick-action-btn">
-          <div className="quick-action-icon" style={{ background: '#F0FDFA', color: '#0D9488' }}>
-            <CalendarDays size={22} />
-          </div>
-          <span className="quick-action-label">الحجوزات</span>
-        </Link>
-        <Link href="/dashboard/patients?action=add" className="quick-action-btn">
-          <div className="quick-action-icon" style={{ background: '#FDF4FF', color: '#9333EA' }}>
-            <UserPlus size={22} />
-          </div>
-          <span className="quick-action-label">إضافة مريض</span>
-        </Link>
+      {/* 2. الإجراءات السريعة المركزة */}
+      <div className="quick-actions-grid" style={{ marginBottom: '24px' }}>
         <Link href="/dashboard/appointments?action=add" className="quick-action-btn">
-          <div className="quick-action-icon" style={{ background: '#FFF7ED', color: '#EA580C' }}>
+          <div className="quick-action-icon" style={{ background: '#F0FDFA', color: '#0D9488' }}>
             <CalendarPlus size={22} />
           </div>
-          <span className="quick-action-label">حجز موعد</span>
+          <span className="quick-action-label">حجز موعد جديد</span>
+        </Link>
+        <Link href="/dashboard/patients?action=add" className="quick-action-btn">
+          <div className="quick-action-icon" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+            <UserPlus size={22} />
+          </div>
+          <span className="quick-action-label">إضافة مريض جديد</span>
+        </Link>
+        <Link href="/dashboard/reports" className="quick-action-btn">
+          <div className="quick-action-icon" style={{ background: '#FDF4FF', color: '#9333EA' }}>
+            <BarChart3 size={22} />
+          </div>
+          <span className="quick-action-label">التقرير المالي والإحصائيات</span>
         </Link>
       </div>
 
-      <div className="dashboard-grid">
-        {/* Today's Appointments */}
-        <div className="dashboard-main">
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">مواعيد اليوم</h3>
-              <Link href="/dashboard/appointments" className="btn btn-ghost btn-sm">
-                عرض الكل <ArrowLeft size={14} />
-              </Link>
-            </div>
-            {todayAppointments.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <CalendarDays size={32} />
-                </div>
-                <div className="empty-state-title">لا توجد مواعيد اليوم</div>
-                <div className="empty-state-text">لم يتم جدولة أي مواعيد لليوم</div>
-              </div>
-            ) : (
-              <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>المريض</th>
-                      <th>الهاتف</th>
-                      <th>الخدمة</th>
-                      <th>الوقت</th>
-                      <th>الحالة</th>
-                      <th>الإجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {todayAppointments.map(apt => (
-                      <tr key={apt.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div className="avatar sm" style={{ background: getAvatarColor(apt.patient_name) }}>
-                              {getInitials(apt.patient_name)}
-                            </div>
-                            <span style={{ fontWeight: 600, color: '#111827' }}>{apt.patient_name}</span>
-                          </div>
-                        </td>
-                        <td style={{ direction: 'ltr', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280' }}>
-                            <Phone size={13} />
-                            {apt.patient_phone}
-                          </div>
-                        </td>
-                        <td>{apt.service_name}</td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280' }}>
-                            <Clock size={13} />
-                            {formatTimeAr(apt.appointment_time)}
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`status-badge ${apt.status}`}>
-                            <span className="status-badge-dot" />
-                            {STATUS_LABELS[apt.status]}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {getActionButtons(apt).map((btn, i) => (
-                              <button
-                                key={i}
-                                className={`btn btn-sm ${btn.cls}`}
-                                onClick={() => handleAction(apt.id, btn.action)}
-                              >
-                                <btn.icon size={14} />
-                                {btn.label}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {/* 3. جدول مواعيد اليوم بكامل عرض الصفحة مريح وبسيط */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3 className="card-title">مواعيد اليوم</h3>
+            <p style={{ fontSize: '0.825rem', color: '#64748B', marginTop: '2px' }}>
+              إجمالي {todayAppointments.length} موعد مجدول لليوم
+            </p>
           </div>
+          <Link href="/dashboard/appointments" className="btn btn-ghost btn-sm">
+            عرض كل الحجوزات <ArrowLeft size={14} />
+          </Link>
         </div>
 
-        {/* Sidebar Content */}
-        <div className="dashboard-sidebar-content">
-          {/* Notifications Preview */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">آخر الإشعارات</h3>
-              {unreadCount > 0 && (
-                <span style={{
-                  background: '#FEF2F2', color: '#DC2626', fontSize: '0.75rem',
-                  fontWeight: 700, padding: '2px 10px', borderRadius: '9999px',
-                }}>
-                  {unreadCount} جديد
-                </span>
-              )}
+        {todayAppointments.length === 0 ? (
+          <div className="empty-state" style={{ padding: '48px 24px' }}>
+            <div className="empty-state-icon">
+              <CalendarDays size={36} color="#94A3B8" />
             </div>
-            <div>
-              {notifications.slice(0, 5).map(n => (
-                <div key={n.id} className={`notification-item ${!n.is_read ? 'unread' : ''}`}>
-                  <div
-                    className="notification-item-icon"
-                    style={{
-                      background: `${NOTIFICATION_COLORS[n.type]}15`,
-                      color: NOTIFICATION_COLORS[n.type],
-                    }}
-                  >
-                    •
-                  </div>
-                  <div className="notification-item-content">
-                    <div className="notification-item-message">{n.message}</div>
-                    <div className="notification-item-time" suppressHydrationWarning>{timeAgo(n.created_at)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="empty-state-title">لا توجد مواعيد متبقية لليوم</div>
+            <div className="empty-state-text">يمكنك حجز موعد جديد بالضغط على زر "حجز موعد جديد" أعلاه</div>
           </div>
-        </div>
+        ) : (
+          <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>المريض</th>
+                  <th>الهاتف</th>
+                  <th>الخدمة الطبية</th>
+                  <th>القيمة</th>
+                  <th>الوقت</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todayAppointments.map(apt => {
+                  const price = getAppointmentPrice(apt);
+                  return (
+                    <tr key={apt.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="avatar sm" style={{ background: getAvatarColor(apt.patient_name) }}>
+                            {getInitials(apt.patient_name)}
+                          </div>
+                          <span style={{ fontWeight: 600, color: '#111827' }}>{apt.patient_name}</span>
+                        </div>
+                      </td>
+                      <td style={{ direction: 'ltr', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280' }}>
+                          <Phone size={13} />
+                          {apt.patient_phone}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{apt.service_name || 'كشف'}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 700, color: apt.status === 'completed' ? '#16A34A' : '#0B8FAC' }}>
+                          {price} ج.م
+                          {apt.status === 'completed' && <span style={{ fontSize: '0.7rem', color: '#16A34A', marginRight: '4px' }}>(مدفوع)</span>}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6B7280' }}>
+                          <Clock size={13} />
+                          {formatTimeAr(apt.appointment_time)}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${apt.status}`}>
+                          <span className="status-badge-dot" />
+                          {STATUS_LABELS[apt.status]}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {getActionButtons(apt).map((btn, i) => (
+                            <button
+                              key={i}
+                              className={`btn btn-sm ${btn.cls}`}
+                              onClick={() => handleAction(apt.id, btn.action)}
+                            >
+                              <btn.icon size={14} />
+                              {btn.label}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
