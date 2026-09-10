@@ -59,10 +59,10 @@ export default function PatientProfilePage({ params }) {
                 <span>{patient.gender === 'male' ? 'ذكر' : 'أنثى'}</span>
               </div>
             )}
-            {patient.date_of_birth && (
+            {(patient.age || patient.date_of_birth) && (
               <div className="profile-meta-item">
                 <Calendar size={14} />
-                <span>{calculateAge(patient.date_of_birth)} سنة</span>
+                <span>{patient.age ? `${patient.age} سنة` : `${calculateAge(patient.date_of_birth)} سنة`}</span>
               </div>
             )}
             {patient.address && (

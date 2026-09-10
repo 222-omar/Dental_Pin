@@ -58,6 +58,9 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState(null);
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
+  const [patientAge, setPatientAge] = useState('');
+  const [patientGender, setPatientGender] = useState('male');
+  const [patientAddress, setPatientAddress] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -184,12 +187,25 @@ export default function BookingPage() {
 
         if (existingPatient) {
           patientId = existingPatient.id;
+          if (patientGender || patientAddress) {
+            await supabase
+              .from('patients')
+              .update({
+                gender: patientGender || 'male',
+                address: patientAddress.trim() || '',
+              })
+              .eq('id', patientId);
+          }
         } else {
+          const dob = patientAge ? `${new Date().getFullYear() - Number(patientAge)}-01-01` : null;
           const { data: newPatient } = await supabase
             .from('patients')
             .insert([{
               name: patientName.trim(),
               phone: patientPhone.trim(),
+              gender: patientGender || 'male',
+              address: patientAddress.trim() || '',
+              date_of_birth: dob,
               status: 'new'
             }])
             .select('id')
@@ -220,7 +236,7 @@ export default function BookingPage() {
         await supabase.from('notifications').insert([{
           type: 'new_booking',
           title: 'حجز إلكتروني جديد',
-          message: `حجز جديد من ${patientName.trim()} — ${selectedService?.name} في ${selectedDateStr} الساعة ${formatTimeAr(selectedTime)}`,
+          message: `حجز جديد من ${patientName.trim()}${patientAge ? ` (${patientAge} سنة)` : ''}${patientGender === 'female' ? ' — أنثى' : ' — ذكر'}${patientAddress.trim() ? ` — ${patientAddress.trim()}` : ''} — ${selectedService?.name} في ${selectedDateStr} الساعة ${formatTimeAr(selectedTime)}`,
           related_appointment_id: appt?.id || null
         }]);
       } catch (e) {
@@ -231,6 +247,38 @@ export default function BookingPage() {
 
       const bNum = generateBookingNumber();
       setBookingNumber(bNum);
+
+      // الإرسال التلقائي الصامت في الخلفية عبر السيرفر وبوابة UltraMsg (بدون أزرار)
+      try {
+        const dateFormatted = selectedDate ? formatDateAr(selectedDate) : '';
+        const timeFormatted = selectedTime ? formatTimeAr(selectedTime) : '';
+        const whatsappMsg = `مرحباً ${patientName.trim()} 👋
+تم تأكيد حجز موعدك بنجاح في عيادة Dental Pin (د. أحمد محمد) 🦷✨
+
+🔖 كود الحجز: ${bNum}
+🩺 نوع الخدمة: ${selectedService?.name || 'كشف أسنان'}
+📅 تاريخ الموعد: ${dateFormatted}
+⏰ وقت الكشف: ${timeFormatted}
+👨‍⚕️ الطبيب المعالج: د. أحمد محمد
+📍 عنوان العيادة: المعادي، القاهرة
+📞 هاتف وواتساب العيادة: 01143912497
+
+نرجو الحضور قبل الموعد بـ 10 دقائق لتأكيد الدخول. نتمنى لك دوام الصحة والعافية!`;
+
+        fetch('/api/send-whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: patientPhone.trim(),
+            message: whatsappMsg,
+            patientName: patientName.trim(),
+            bookingNumber: bNum
+          })
+        }).catch(err => console.log('WhatsApp background notification error:', err));
+      } catch (err) {
+        // ignore
+      }
+
       setIsSubmitted(true);
       setCurrentStep(5);
       return;
@@ -249,6 +297,33 @@ export default function BookingPage() {
       case 4: return true;
       default: return false;
     }
+  };
+
+  // رابط إرسال رسالة التأكيد للمريض على الواتساب
+  const getPatientWhatsAppUrl = () => {
+    let cleanPhone = (patientPhone || '').replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '2' + cleanPhone;
+    } else if (!cleanPhone.startsWith('20') && cleanPhone.length === 10) {
+      cleanPhone = '20' + cleanPhone;
+    }
+
+    const dateFormatted = selectedDate ? formatDateAr(selectedDate) : '';
+    const timeFormatted = selectedTime ? formatTimeAr(selectedTime) : '';
+    const text = `مرحباً ${patientName.trim() || 'عزيزي المريض'} 👋
+تم تأكيد حجز موعدك بنجاح في عيادة Dental Pin (د. أحمد محمد) 🦷✨
+
+🔖 كود الحجز: ${bookingNumber || 'DP-CONFIRMED'}
+🩺 نوع الخدمة: ${selectedService?.name || 'كشف أسنان'}
+📅 تاريخ الموعد: ${dateFormatted}
+⏰ وقت الكشف: ${timeFormatted}
+👨‍⚕️ الطبيب المعالج: د. أحمد محمد
+📍 عنوان العيادة: المعادي، القاهرة
+📞 هاتف وواتساب العيادة: 01143912497
+
+نرجو الحضور قبل الموعد بـ 10 دقائق لتأكيد الدخول. نتمنى لك دوام الصحة والعافية!`;
+
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
   return (
@@ -334,10 +409,7 @@ export default function BookingPage() {
                               <CheckCircle size={13} /> تم الاختيار
                             </div>
                           )}
-                          <div className="booking-service-icon-box">
-                            {getServiceIcon(service.name)}
-                          </div>
-                          <div className="booking-service-name">{service.name}</div>
+                          <div className="booking-service-name" style={{ marginTop: isSelected ? '12px' : '0' }}>{service.name}</div>
                           <div className="booking-service-desc">{service.description}</div>
                           
                           <div className="booking-service-footer">
@@ -626,6 +698,52 @@ export default function BookingPage() {
                       )}
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 700 }}>
+                          العمر (بالسنوات) <span style={{ color: '#94A3B8', fontWeight: 400, fontSize: '0.85rem' }}>(اختياري)</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          className="form-input"
+                          placeholder="مثال: 28"
+                          value={patientAge}
+                          onChange={(e) => setPatientAge(e.target.value)}
+                          style={{ height: '48px', fontSize: '0.95rem' }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 700 }}>
+                          النوع
+                        </label>
+                        <select
+                          className="form-select"
+                          value={patientGender}
+                          onChange={(e) => setPatientGender(e.target.value)}
+                          style={{ height: '48px', fontSize: '0.95rem' }}
+                        >
+                          <option value="male">ذكر</option>
+                          <option value="female">أنثى</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '18px' }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>
+                        العنوان <span style={{ color: '#94A3B8', fontWeight: 400, fontSize: '0.85rem' }}>(اختياري)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="مثال: المعادي، القاهرة"
+                        value={patientAddress}
+                        onChange={(e) => setPatientAddress(e.target.value)}
+                        style={{ height: '48px', fontSize: '0.95rem' }}
+                      />
+                    </div>
+
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -697,7 +815,7 @@ export default function BookingPage() {
               </div>
               <h2 className="booking-confirmation-title">تم استلام طلب حجزك بنجاح</h2>
               <p className="booking-confirmation-subtitle">
-                سيتم إرسال رسالة تأكيد لواتساب هاتفك والتواصل معك لتأكيد الحضور
+                تم إرسال رسالة تفاصيل وتأكيد الحجز إلى واتساب هاتفك تلقائياً
               </p>
 
               <div className="booking-confirmation-details">
@@ -741,7 +859,7 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{ marginTop: '28px', display: 'flex', justifyContent: 'center' }}>
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={() => {

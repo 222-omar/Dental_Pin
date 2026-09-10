@@ -184,14 +184,20 @@ h5 { font-size: 1rem; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: calc(100vw - var(--sidebar-width));
+  width: calc(100vw - var(--sidebar-width));
+  overflow-x: clip;
 }
 
 .main-content {
   flex: 1;
-  padding: var(--space-6);
-  padding-top: calc(var(--header-height) + var(--space-6));
-  max-width: 1400px;
+  padding: 20px 24px;
+  padding-top: calc(var(--header-height) + 20px);
+  max-width: 100%;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ===== Sidebar ===== */
@@ -1050,43 +1056,176 @@ textarea.form-input {
 
 .calendar-day {
   text-align: center;
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
+  padding: 10px 8px;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
+  border: 1px solid var(--gray-200);
+  background: #ffffff;
+  min-width: 86px;
+  user-select: none;
 }
 
 .calendar-day:hover {
-  background: var(--gray-100);
+  background: var(--gray-50);
+  border-color: var(--primary-400);
+}
+
+.calendar-day-header {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  margin-bottom: 4px;
 }
 
 .calendar-day-number {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--gray-700);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-800);
 }
 
 .calendar-day-count {
   font-size: 0.7rem;
   color: var(--primary-600);
   font-weight: 600;
+  margin-top: 4px;
 }
 
-.calendar-day.today {
-  background: var(--primary-600);
-  color: white;
+/* حالة اليوم (إذا لم يكن محدداً) */
+.calendar-day.today:not(.selected) {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
 }
 
-.calendar-day.today .calendar-day-number,
-.calendar-day.today .calendar-day-count {
-  color: white;
+.calendar-day.today:not(.selected) .calendar-day-header {
+  color: #475569;
+  font-weight: 600;
 }
 
-.calendar-day.selected {
-  background: var(--primary-50);
-  border: 2px solid var(--primary-500);
+.calendar-day.today:not(.selected) .calendar-day-number {
+  color: #0F172A;
 }
+
+.calendar-day.today:not(.selected) .calendar-day-count {
+  color: #64748B;
+}
+
+/* حالة اليوم المحدد (Selected) - مظهر هادئ، فاتح وأنيق مع خط سفلي تشاوري بدون ألوان غامقة أو فاقعة */
+.calendar-day.selected,
+.calendar-day.today.selected {
+  background: #F8FAFC !important;
+  border: 1.5px solid #0B8FAC !important;
+  border-bottom: 3px solid #0B8FAC !important;
+  box-shadow: 0 2px 8px rgba(11, 143, 172, 0.12) !important;
+}
+
+.calendar-day.selected .calendar-day-header,
+.calendar-day.today.selected .calendar-day-header {
+  color: #0B8FAC !important;
+  font-weight: 700 !important;
+}
+
+.calendar-day.selected .calendar-day-number,
+.calendar-day.today.selected .calendar-day-number {
+  color: #0F172A !important;
+  font-weight: 800 !important;
+}
+
+.calendar-day.selected .calendar-day-count,
+.calendar-day.today.selected .calendar-day-count {
+  color: #0B8FAC !important;
+  background: transparent !important;
+  font-weight: 600 !important;
+  padding: 0;
+}
+
+/* Calendar Draggable Strip */
+.calendar-strip-container {
+  position: relative;
+  margin-bottom: var(--space-4);
+}
+
+.calendar-strip-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  cursor: grab;
+}
+
+.calendar-strip-scroll:active {
+  cursor: grabbing;
+}
+
+.calendar-strip-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.calendar-strip-scroll::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 4px;
+}
+
+/* Appointment Slot Card Redesign */
+.day-appointments-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.day-appointments-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #FAFAFA;
+}
+
+.day-appointments-list {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.appointment-slot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  border-right-width: 5px;
+  transition: all 0.2s ease;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.appointment-slot-card:hover {
+  border-color: var(--gray-300);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.appointment-slot-card.pending { border-right-color: #F59E0B; }
+.appointment-slot-card.confirmed { border-right-color: #3B82F6; }
+.appointment-slot-card.arrived { border-right-color: #10B981; }
+.appointment-slot-card.in_treatment { border-right-color: #8B5CF6; }
+.appointment-slot-card.completed { border-right-color: #10B981; }
+.appointment-slot-card.cancelled { border-right-color: #EF4444; }
+.appointment-slot-card.no_show { border-right-color: #9CA3AF; }
 
 .calendar-view-toggle {
   display: flex;

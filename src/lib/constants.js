@@ -69,12 +69,15 @@ export const DEFAULT_SERVICES = [
   { id: '8', name: 'تبييض أسنان', description: 'تبييض وتجميل الأسنان', duration: 60, price: 1200, active: true },
 ];
 
-// بيانات الطبيب الافتراضي
+// بيانات الطبيب الافتراضي والعيادة
+export const CLINIC_WHATSAPP = '01143912497';
+
 export const DEFAULT_DOCTOR = {
   id: '1',
   name: 'د. أحمد محمد',
   specialization: 'طبيب أسنان',
-  phone: '01012345678',
+  phone: '01143912497',
+  whatsapp: '01143912497',
   workingHours: { start: '09:00', end: '21:00' },
   workingDays: [0, 1, 2, 3, 4, 5], // السبت إلى الخميس
 };

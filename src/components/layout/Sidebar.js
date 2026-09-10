@@ -1,10 +1,11 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, Users, CalendarDays, BarChart3, Bell, Settings, LogOut, X, Stethoscope } from 'lucide-react';
 import { SIDEBAR_ITEMS, SIDEBAR_BOTTOM_ITEMS } from '@/lib/constants';
 import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/lib/supabase/client';
 
 const iconMap = {
   LayoutDashboard, Users, CalendarDays, BarChart3, Bell, Settings,
@@ -12,7 +13,18 @@ const iconMap = {
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { unreadCount } = useApp();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Sign out error:', err);
+    }
+    if (onClose) onClose();
+    router.push('/login');
+  };
 
   return (
     <>
@@ -85,7 +97,12 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* User */}
         <div className="sidebar-bottom">
-          <button className="sidebar-item" style={{ width: '100%', color: '#DC2626' }}>
+          <button
+            type="button"
+            className="sidebar-item"
+            style={{ width: '100%', color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'right' }}
+            onClick={handleLogout}
+          >
             <LogOut size={20} className="sidebar-item-icon" />
             <span>تسجيل الخروج</span>
           </button>

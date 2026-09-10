@@ -476,13 +476,6 @@ export default function ReportsPage() {
                 <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '4px' }}>مرضى مستمرون</div>
               </div>
             </div>
-
-            <div style={{ marginTop: '20px', padding: '14px', borderRadius: '8px', background: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Activity size={18} style={{ color: '#16A34A', flexShrink: 0 }} />
-              <div style={{ fontSize: '0.8rem', color: '#166534', lineHeight: 1.5 }}>
-                يتم احتساب إيراد كل كشف تلقائياً بمجرد ضغط <strong>إنهاء ودفع</strong> في شاشة الاستقبال، مما يضمن دقة الحسابات المالية فورياً.
-              </div>
-            </div>
           </div>
         </div>
       </div>

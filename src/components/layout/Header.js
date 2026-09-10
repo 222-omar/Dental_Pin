@@ -1,15 +1,27 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Menu, Calendar } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, Menu, Calendar, LogOut } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateWithDay, timeAgo } from '@/lib/utils';
 import { NOTIFICATION_COLORS } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 
 export default function Header({ onMenuClick, title, subtitle }) {
+  const router = useRouter();
   const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useApp();
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef(null);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Sign out error:', err);
+    }
+    router.push('/login');
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -97,6 +109,16 @@ export default function Header({ onMenuClick, title, subtitle }) {
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          className="header-btn"
+          title="تسجيل الخروج"
+          onClick={handleLogout}
+          style={{ color: '#DC2626' }}
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   );

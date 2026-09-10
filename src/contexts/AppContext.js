@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from '@/lib/supabase/client';
 import { mockPatients, mockAppointments, mockNotifications } from '@/lib/mockData';
 import { DEFAULT_SERVICES } from '@/lib/constants';
+import { calculateAge } from '@/lib/utils';
 
 const AppContext = createContext();
 
@@ -42,7 +43,13 @@ export function AppProvider({ children }) {
         // الجداول موجودة وجلب البيانات بنجاح
         setUsingMockData(false);
         setIsSupabaseConnected(true);
-        if (patientsData && patientsData.length > 0) setPatients(patientsData);
+        if (patientsData && patientsData.length > 0) {
+          const mapped = patientsData.map(p => ({
+            ...p,
+            age: p.age ?? (p.date_of_birth ? calculateAge(p.date_of_birth) : null)
+          }));
+          setPatients(mapped);
+        }
         if (appointmentsData && appointmentsData.length > 0) setAppointments(appointmentsData);
         if (notificationsData && notificationsData.length > 0) setNotifications(notificationsData);
         if (servicesData && servicesData.length > 0) setServices(servicesData);
@@ -80,12 +87,18 @@ export function AppProvider({ children }) {
 
   // ---- Patients ----
   const addPatient = useCallback(async (patient) => {
+    let dob = patient.date_of_birth;
+    if (!dob && patient.age) {
+      dob = `${new Date().getFullYear() - Number(patient.age)}-01-01`;
+    }
+    const computedAge = patient.age ? Number(patient.age) : (dob ? calculateAge(dob) : null);
+
     if (!usingMockData) {
       try {
         const { data, error } = await supabase.from('patients').insert([{
           name: patient.name,
           phone: patient.phone,
-          date_of_birth: patient.date_of_birth || null,
+          date_of_birth: dob || null,
           gender: patient.gender || 'male',
           address: patient.address || '',
           notes: patient.notes || '',
@@ -93,8 +106,9 @@ export function AppProvider({ children }) {
         }]).select().single();
 
         if (!error && data) {
-          setPatients(prev => [data, ...prev]);
-          return data;
+          const item = { ...data, age: computedAge, date_of_birth: dob || data.date_of_birth };
+          setPatients(prev => [item, ...prev]);
+          return item;
         }
       } catch (e) {
         console.error('Error adding patient to Supabase:', e);
@@ -104,6 +118,8 @@ export function AppProvider({ children }) {
     const newPatient = {
       ...patient,
       id: (Date.now() + Math.random()).toString(),
+      age: computedAge,
+      date_of_birth: dob || null,
       created_at: new Date().toISOString(),
       lastVisit: null,
       nextAppointment: null,
@@ -114,17 +130,46 @@ export function AppProvider({ children }) {
   }, [usingMockData]);
 
   const updatePatient = useCallback(async (id, data) => {
+    let dob = data.date_of_birth;
+    if (!dob && data.age) {
+      dob = `${new Date().getFullYear() - Number(data.age)}-01-01`;
+    }
+    const computedAge = data.age ? Number(data.age) : (dob ? calculateAge(dob) : null);
+
     if (!usingMockData) {
       try {
         await supabase.from('patients').update({
-          ...data,
+          name: data.name,
+          phone: data.phone,
+          date_of_birth: dob || null,
+          gender: data.gender || 'male',
+          address: data.address || '',
+          notes: data.notes || '',
           updated_at: new Date().toISOString(),
         }).eq('id', id);
       } catch (e) {
         console.error('Error updating patient in Supabase:', e);
       }
     }
-    setPatients(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+    setPatients(prev => prev.map(p => p.id === id ? {
+      ...p,
+      ...data,
+      date_of_birth: dob || p.date_of_birth,
+      age: computedAge
+    } : p));
+  }, [usingMockData]);
+
+  const deletePatient = useCallback(async (id) => {
+    if (!usingMockData) {
+      try {
+        await supabase.from('patients').delete().eq('id', id);
+        await supabase.from('appointments').delete().eq('patient_id', id);
+      } catch (e) {
+        console.error('Error deleting patient from Supabase:', e);
+      }
+    }
+    setPatients(prev => prev.filter(p => p.id !== id));
+    setAppointments(prev => prev.filter(a => a.patient_id !== id));
   }, [usingMockData]);
 
   const getPatient = useCallback((id) => {
@@ -451,7 +496,7 @@ export function AppProvider({ children }) {
       usingMockData,
       fetchData,
       // Patients
-      patients, addPatient, updatePatient, getPatient,
+      patients, addPatient, updatePatient, deletePatient, getPatient,
       // Appointments
       appointments, addAppointment, updateAppointment, cancelAppointment,
       rescheduleAppointment, checkInAppointment, startTreatment,

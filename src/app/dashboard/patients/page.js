@@ -4,19 +4,20 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Search, UserPlus, Phone, Calendar, MapPin, ChevronLeft, ChevronRight,
-  Eye, Edit2, CalendarPlus, X, User
+  Eye, Edit2, Trash2, CalendarPlus, X, User
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastContext';
 import { GENDER_OPTIONS } from '@/lib/constants';
 import { formatDateAr, calculateAge, getInitials, getAvatarColor, formatPhone } from '@/lib/utils';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 8;
 
 export default function PatientsPage() {
-  const { patients, addPatient, updatePatient } = useApp();
+  const { patients, addPatient, updatePatient, deletePatient } = useApp();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
 
@@ -25,8 +26,9 @@ export default function PatientsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(searchParams.get('action') === 'add');
   const [editingPatient, setEditingPatient] = useState(null);
+  const [patientToDelete, setPatientToDelete] = useState(null);
   const [formData, setFormData] = useState({
-    name: '', phone: '', date_of_birth: '', gender: '', address: '', notes: '',
+    name: '', phone: '', age: '', gender: '', address: '', notes: '',
   });
   const [formErrors, setFormErrors] = useState({});
 
@@ -49,7 +51,7 @@ export default function PatientsPage() {
   );
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', date_of_birth: '', gender: '', address: '', notes: '' });
+    setFormData({ name: '', phone: '', age: '', gender: '', address: '', notes: '' });
     setFormErrors({});
     setEditingPatient(null);
   };
@@ -60,11 +62,13 @@ export default function PatientsPage() {
   };
 
   const openEditModal = (patient) => {
+    const rawAge = patient.age ?? (patient.date_of_birth ? calculateAge(patient.date_of_birth) : '');
+    const validAge = rawAge && Number(rawAge) > 0 ? rawAge : '';
     setEditingPatient(patient);
     setFormData({
-      name: patient.name,
-      phone: patient.phone,
-      date_of_birth: patient.date_of_birth || '',
+      name: patient.name || '',
+      phone: patient.phone || '',
+      age: validAge ? String(validAge) : '',
       gender: patient.gender || '',
       address: patient.address || '',
       notes: patient.notes || '',
@@ -83,14 +87,20 @@ export default function PatientsPage() {
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!validateForm()) return;
 
+    const payload = {
+      ...formData,
+      age: formData.age ? Number(formData.age) : null,
+      date_of_birth: formData.age ? `${new Date().getFullYear() - Number(formData.age)}-01-01` : (editingPatient?.date_of_birth || null),
+    };
+
     if (editingPatient) {
-      updatePatient(editingPatient.id, formData);
+      updatePatient(editingPatient.id, payload);
       addToast('تم تعديل بيانات المريض بنجاح', 'success');
     } else {
-      addPatient(formData);
+      addPatient(payload);
       addToast('تم إضافة المريض بنجاح', 'success');
     }
     setShowModal(false);
@@ -202,7 +212,7 @@ export default function PatientsPage() {
                 <div>
                   <div className="patient-row-field-label">العمر</div>
                   <div className="patient-row-field-value">
-                    {patient.date_of_birth ? `${calculateAge(patient.date_of_birth)} سنة` : '—'}
+                    {patient.age && Number(patient.age) > 0 ? `${patient.age} سنة` : (patient.date_of_birth && calculateAge(patient.date_of_birth) > 0 ? `${calculateAge(patient.date_of_birth)} سنة` : '—')}
                   </div>
                 </div>
               </div>
@@ -225,6 +235,14 @@ export default function PatientsPage() {
                 </Link>
                 <button className="btn btn-icon btn-ghost sm" onClick={() => openEditModal(patient)} title="تعديل">
                   <Edit2 size={16} />
+                </button>
+                <button
+                  className="btn btn-icon btn-ghost sm"
+                  onClick={() => setPatientToDelete(patient)}
+                  title="حذف المريض"
+                  style={{ color: '#EF4444' }}
+                >
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -308,12 +326,15 @@ export default function PatientsPage() {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">تاريخ الميلاد</label>
+              <label className="form-label">العمر (بالسنوات)</label>
               <input
-                type="date"
+                type="number"
                 className="form-input"
-                value={formData.date_of_birth}
-                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                placeholder="مثال: 32"
+                min="1"
+                max="120"
+                value={formData.age}
+                onChange={(e) => setFormData({ ...formData, age: e.target.value })}
               />
             </div>
             <div className="form-group">
@@ -354,6 +375,24 @@ export default function PatientsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* دايالوج تأكيد حذف المريض */}
+      <ConfirmDialog
+        isOpen={!!patientToDelete}
+        onClose={() => setPatientToDelete(null)}
+        onConfirm={() => {
+          if (patientToDelete) {
+            deletePatient(patientToDelete.id);
+            addToast(`تم حذف المريض ${patientToDelete.name} بنجاح`, 'info');
+            setPatientToDelete(null);
+          }
+        }}
+        title="حذف المريض"
+        message={`هل أنت متأكد من حذف بيانات المريض "${patientToDelete?.name}"؟ سيتم حذف المريض وجميع مواعيده المسجلة نهائياً.`}
+        confirmText="نعم، حذف المريض"
+        cancelText="إلغاء"
+        variant="danger"
+      />
     </>
   );
 }
