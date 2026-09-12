@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Search, UserPlus, Phone, Calendar, MapPin, ChevronLeft, ChevronRight,
@@ -16,7 +16,7 @@ import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 8;
 
-export default function PatientsPage() {
+function PatientsContent() {
   const { patients, addPatient, updatePatient, deletePatient } = useApp();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
@@ -394,5 +394,13 @@ export default function PatientsPage() {
         variant="danger"
       />
     </>
+  );
+}
+
+export default function PatientsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>جاري التحميل...</div>}>
+      <PatientsContent />
+    </Suspense>
   );
 }
